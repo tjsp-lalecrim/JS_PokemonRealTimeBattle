@@ -86,48 +86,59 @@ window.onload = () => {
     char.posY = Math.max(0, Math.min(char.posY, cnv.height - char.img.height));
   }
 
-  function updateProjectiles(char, target) {
-    char.projectiles.forEach(projectile => {
-      if (char.projectileDirection === 'diagonal') {
-        if (projectile.rect().top > 0 && projectile.rect().top < projectile.radius) {
-          projectile.directionY = -2 * projectile.directionY;
-        }
-
-        if (projectile.rect().left > 0 && projectile.rect().left < projectile.radius) {
-          projectile.directionX = -2 * projectile.directionX;
-        }
-
-        if (projectile.rect().right < cnv.width && projectile.rect().right > cnv.width - projectile.radius) {
-          projectile.directionX = -2 * projectile.directionX;
-        }
-
-        if (projectile.rect().bottom < cnv.height && projectile.rect().bottom > cnv.height - projectile.radius) {
-          projectile.directionY = -2 * projectile.directionY;
-        }
+  function updateProjectilePosition(projectile, projectileDirection) {
+    if (projectileDirection === 'diagonal') {
+      if (projectile.rect().top > 0 && projectile.rect().top < projectile.radius) {
+        projectile.directionY = -2 * projectile.directionY;
       }
 
-      projectile.update();
-      if (collision(projectile.rect(), target.rect())) {
-        target.health -= 10;
-        playerHealth.innerHTML = player.health;
-        opponentHealth.innerHTML = opponent.health;
-        projectile.collision = true;
+      if (projectile.rect().left > 0 && projectile.rect().left < projectile.radius) {
+        projectile.directionX = -2 * projectile.directionX;
       }
-    });
 
-    char.projectiles = char.projectiles.filter(projectile => 
-      projectile.posX > 0 && 
-      projectile.posX < cnv.width && 
+      if (projectile.rect().right < cnv.width && projectile.rect().right > cnv.width - projectile.radius) {
+        projectile.directionX = -2 * projectile.directionX;
+      }
+
+      if (projectile.rect().bottom < cnv.height && projectile.rect().bottom > cnv.height - projectile.radius) {
+        projectile.directionY = -2 * projectile.directionY;
+      }
+    }
+  }
+
+  function updateProjectileCollision(projectile, target) {
+    if (collision(projectile.rect(), target.rect())) {
+      target.health -= 10;
+      playerHealth.innerHTML = player.health;
+      opponentHealth.innerHTML = opponent.health;
+      projectile.collision = true;
+    }
+  }
+
+  function filterCharProjectiles(char) {
+    char.projectiles = char.projectiles.filter(projectile =>
+      projectile.posX > 0 &&
+      projectile.posX < cnv.width &&
       !projectile.collision &&
       Math.abs(projectile.directionX) <= char.projectileMaxSpeed &&
       Math.abs(projectile.directionY) < char.projectileMaxSpeed
     );
   }
 
+  function updateCharactersAndProjectiles(char, target) {
+    char.projectiles.forEach(projectile => {
+      updateProjectilePosition(projectile, char.projectileDirection);
+      projectile.update();
+      updateProjectileCollision(projectile, target);
+    });
+
+    filterCharProjectiles(char);
+  }
+
   function updatePlayer() {
     player.update();
     validateCharacterPosition(player);
-    updateProjectiles(player, opponent);
+    updateCharactersAndProjectiles(player, opponent);
   }
 
   function updateOpponent() {
@@ -143,7 +154,7 @@ window.onload = () => {
     }
 
     opponent.update();
-    updateProjectiles(opponent, player);
+    updateCharactersAndProjectiles(opponent, player);
   }
 
   function update() {
