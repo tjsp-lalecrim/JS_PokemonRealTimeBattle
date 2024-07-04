@@ -5,17 +5,16 @@ window.onload = () => {
   const cnv = document.getElementById("game");
   const ctx = cnv.getContext("2d");
 
-  let playerHealth = document.getElementById("player-health");
-  let opponentHealth = document.getElementById("opponent-health");
+  const playerHealth = document.getElementById("player-health");
+  const opponentHealth = document.getElementById("opponent-health");
+
+  let gameOver = false;
 
   playerHealth.innerHTML = player.health;
   opponentHealth.innerHTML = opponent.health;
-
-  gameOver = false;
-
   // #endregion
 
-  // #region render
+  // #region Render Functions
   function renderBackground(bgColor) {
     ctx.save();
     ctx.fillStyle = bgColor;
@@ -23,31 +22,10 @@ window.onload = () => {
     ctx.restore();
   }
 
-  function renderImage(
-    img,
-    sx,
-    sy,
-    sWidth,
-    sHeight,
-    dx,
-    dy,
-    dWidth,
-    dHeight,
-    flipped
-  ) {
+  function renderImage(img, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight, flipped) {
     ctx.save();
     if (flipped) ctx.scale(-1, 1);
-    ctx.drawImage(
-      img,
-      sx,
-      sy,
-      sWidth,
-      sHeight,
-      dx * (flipped ? -1 : 1),
-      dy,
-      dWidth * (flipped ? -1 : 1),
-      dHeight
-    );
+    ctx.drawImage(img, sx, sy, sWidth, sHeight, dx * (flipped ? -1 : 1), dy, dWidth * (flipped ? -1 : 1), dHeight);
     ctx.restore();
   }
 
@@ -61,30 +39,13 @@ window.onload = () => {
   }
 
   function renderProjectiles(projectiles) {
-    projectiles.forEach((projectile) => {
-      renderCircle(
-        projectile.color,
-        projectile.posX,
-        projectile.posY,
-        projectile.radius
-      );
+    projectiles.forEach(projectile => {
+      renderCircle(projectile.color, projectile.posX, projectile.posY, projectile.radius);
     });
   }
 
   function renderCharacter(char) {
-    renderImage(
-      char.img,
-      0,
-      0,
-      char.img.width,
-      char.img.height,
-      char.posX,
-      char.posY,
-      char.img.width,
-      char.img.height,
-      char.flipped
-    );
-
+    renderImage(char.img, 0, 0, char.img.width, char.img.height, char.posX, char.posY, char.img.width, char.img.height, char.flipped);
     renderProjectiles(char.projectiles);
   }
 
@@ -111,9 +72,7 @@ window.onload = () => {
   }
 
   function render() {
-    if (gameOver) {
-      return;
-    }
+    if (gameOver) return;
 
     renderBackground(BG_COLOR);
     renderCharacter(player);
@@ -121,62 +80,14 @@ window.onload = () => {
   }
   // #endregion
 
-  // #region update
+  // #region Update Functions
   function validateCharacterPosition(char) {
-    if (char.posX < 0) {
-      char.posX = 0;
-    }
-    if (char.posX + char.img.width > cnv.width) {
-      char.posX = cnv.width - char.img.width;
-    }
-    if (char.posY < 0) {
-      char.posY = 0;
-    }
-    if (char.posY + char.img.height > cnv.height) {
-      char.posY = cnv.height - char.img.height;
-    }
-  }
-
-  function updatePlayer() {
-    player.update();
-    validateCharacterPosition(player);
-    updateProjectiles(player, opponent);
-  }
-
-  function updateOpponent() {
-    if (opponent.posX <= 0) {
-      opponent.directionX = -opponent.directionX;
-    }
-    if (opponent.posX >= cnv.width - opponent.img.width) {
-      opponent.directionX = -opponent.directionX;
-    }
-    if (opponent.posY <= 0) {
-      opponent.directionY = -opponent.directionY;
-    }
-    if (opponent.posY >= cnv.height - opponent.img.height) {
-      opponent.directionY = -opponent.directionY;
-    }
-    if (opponent.posX < player.posX) {
-      opponent.flipped = true;
-    }
-    if (opponent.posX > player.posX) {
-      opponent.flipped = false;
-    }
-    if (
-      opponent.posY === player.posY ||
-      opponent.posY === player.posY + player.img.height
-    ) {
-      opponent.shoot();
-    }
-
-    opponent.update();
-    updateProjectiles(opponent, player);
+    char.posX = Math.max(0, Math.min(char.posX, cnv.width - char.img.width));
+    char.posY = Math.max(0, Math.min(char.posY, cnv.height - char.img.height));
   }
 
   function updateProjectiles(char, target) {
-    // update position and collision
-    char.projectiles.forEach((projectile) => {
-
+    char.projectiles.forEach(projectile => {
       if (char.projectileDirection === 'diagonal') {
         if (projectile.rect().top > 0 && projectile.rect().top < projectile.radius) {
           projectile.directionY = -2 * projectile.directionY;
@@ -186,7 +97,7 @@ window.onload = () => {
           projectile.directionX = -2 * projectile.directionX;
         }
 
-        if (projectile.rect().right < cnv.width && projectile.rect().right > cnv.width - projectile.radius ) {
+        if (projectile.rect().right < cnv.width && projectile.rect().right > cnv.width - projectile.radius) {
           projectile.directionX = -2 * projectile.directionX;
         }
 
@@ -196,56 +107,63 @@ window.onload = () => {
       }
 
       projectile.update();
-      projectile.collision = collision(projectile.rect(), target.rect());
-      if (projectile.collision) {
+      if (collision(projectile.rect(), target.rect())) {
         target.health -= 10;
         playerHealth.innerHTML = player.health;
         opponentHealth.innerHTML = opponent.health;
+        projectile.collision = true;
       }
     });
 
-    // clear projectiles
-    char.projectiles = [
-      ...char.projectiles.filter((projectile) => {
-        return (
-          projectile.posX > 0 &&
-          projectile.posX < cnv.width &&
-          !projectile.collision && 
-          Math.abs(projectile.directionX) <= char.projectileMaxSpeed &&
-          Math.abs(projectile.directionY) < char.projectileMaxSpeed
-        );
-      }),
-    ];
+    char.projectiles = char.projectiles.filter(projectile => 
+      projectile.posX > 0 && 
+      projectile.posX < cnv.width && 
+      !projectile.collision &&
+      Math.abs(projectile.directionX) <= char.projectileMaxSpeed &&
+      Math.abs(projectile.directionY) < char.projectileMaxSpeed
+    );
+  }
+
+  function updatePlayer() {
+    player.update();
+    validateCharacterPosition(player);
+    updateProjectiles(player, opponent);
+  }
+
+  function updateOpponent() {
+    if (opponent.posX <= 0 || opponent.posX >= cnv.width - opponent.img.width) {
+      opponent.directionX = -opponent.directionX;
+    }
+    if (opponent.posY <= 0 || opponent.posY >= cnv.height - opponent.img.height) {
+      opponent.directionY = -opponent.directionY;
+    }
+    opponent.flipped = opponent.posX < player.posX;
+    if (opponent.posY === player.posY || opponent.posY === player.posY + player.img.height) {
+      opponent.shoot();
+    }
+
+    opponent.update();
+    updateProjectiles(opponent, player);
   }
 
   function update() {
-    if (gameOver) {
-      return;
-    }
+    if (gameOver) return;
 
     updatePlayer();
     updateOpponent();
 
     if (player.health <= 0) {
-      return handleGameOver();
+      handleGameOver();
     }
 
     if (opponent.health <= 0) {
-      return handleVictory();
+      handleVictory();
     }
   }
 
   function handleGameOver() {
     gameOver = true;
     renderGameOver();
-  }
-  // #endregion
-
-  // #region loop
-  function loop() {
-    update();
-    render();
-    requestAnimationFrame(loop);
   }
 
   function handleVictory() {
@@ -254,7 +172,13 @@ window.onload = () => {
   }
   // #endregion
 
-  // #region game
+  // #region Game Loop
+  function loop() {
+    update();
+    render();
+    requestAnimationFrame(loop);
+  }
+
   function init() {
     loop();
   }
@@ -262,37 +186,39 @@ window.onload = () => {
   init();
   // #endregion
 
-  // #region events
-  document.addEventListener("keydown", (event) => {
-    const key = event.key;
-
-    if (key === "ArrowLeft") {
-      player.directionX = -2;
-      player.flipped = false;
-    }
-    if (key === "ArrowRight") {
-      player.directionX = 2;
-      player.flipped = true;
-    }
-    if (key === "ArrowUp") {
-      player.directionY = -2;
-    }
-    if (key === "ArrowDown") {
-      player.directionY = 2;
-    }
-    if (key === "Control") {
-      player.shoot();
+  // #region Event Handlers
+  document.addEventListener("keydown", event => {
+    switch (event.key) {
+      case "ArrowLeft":
+        player.directionX = -2;
+        player.flipped = false;
+        break;
+      case "ArrowRight":
+        player.directionX = 2;
+        player.flipped = true;
+        break;
+      case "ArrowUp":
+        player.directionY = -2;
+        break;
+      case "ArrowDown":
+        player.directionY = 2;
+        break;
+      case "Control":
+        player.shoot();
+        break;
     }
   });
 
-  document.addEventListener("keyup", (event) => {
-    const key = event.key;
-
-    if (key === "ArrowLeft" || key === "ArrowRight") {
-      player.directionX = 0;
-    }
-    if (key === "ArrowUp" || key === "ArrowDown") {
-      player.directionY = 0;
+  document.addEventListener("keyup", event => {
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowRight":
+        player.directionX = 0;
+        break;
+      case "ArrowUp":
+      case "ArrowDown":
+        player.directionY = 0;
+        break;
     }
   });
   // #endregion
